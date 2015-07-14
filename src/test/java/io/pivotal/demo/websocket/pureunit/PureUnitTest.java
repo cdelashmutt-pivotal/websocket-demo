@@ -1,8 +1,8 @@
 package io.pivotal.demo.websocket.pureunit;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import io.pivotal.demo.websocket.controller.GreetingController;
-import io.pivotal.demo.websocket.domain.Greeting;
 import io.pivotal.demo.websocket.domain.HelloMessage;
 
 import java.nio.charset.Charset;
@@ -13,12 +13,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.context.support.StaticApplicationContext;
 import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.SubscribableChannel;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
-import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.messaging.simp.annotation.support.SimpAnnotationMethodMessageHandler;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
@@ -33,21 +29,31 @@ public class PureUnitTest {
 
 	private TestMessageChannel clientOutboundChannel;
 
+	private TestMessageChannel clientInboundChannel;
+
 	private TestAnnotationMethodHandler annotationMethodHandler;
 
-	private TrackingGreetingService trackingGreetingService = new TrackingGreetingService();
-
+	/**
+	 * This method sets up a simple outbound and inbound channel with payload
+	 * conversion to JSON
+	 */
 	@Before
 	public void setup() {
 
-		GreetingController controller = new GreetingController(
-				trackingGreetingService);
+		// The controller under test.
+		GreetingController controller = new GreetingController();
 
+		// Set up the outbound and inbound channels for catching messages.
 		this.clientOutboundChannel = new TestMessageChannel();
+		this.clientInboundChannel = new TestMessageChannel();
+		SimpMessagingTemplate template = new SimpMessagingTemplate(
+				clientInboundChannel);
+		// Need to set the MessageConverter on the template to convert inbound
+		// messages to JSON
+		template.setMessageConverter(new MappingJackson2MessageConverter());
 
 		this.annotationMethodHandler = new TestAnnotationMethodHandler(
-				new TestMessageChannel(), clientOutboundChannel,
-				new SimpMessagingTemplate(new TestMessageChannel()));
+				new TestMessageChannel(), clientOutboundChannel, template);
 
 		this.annotationMethodHandler.registerHandler(controller);
 		this.annotationMethodHandler
@@ -55,11 +61,13 @@ public class PureUnitTest {
 		this.annotationMethodHandler
 				.setApplicationContext(new StaticApplicationContext());
 
-		// This value is arbitrary for this test. We'll use it later on in the
-		// test method as the prefix to the MessageMapping we want to test.
+		// This prefix should be prepended to any STOMP message destination that
+		// we're trying to send to an @SubscribeMessage or @MessageMapping
+		// method
 		this.annotationMethodHandler.setDestinationPrefixes(Arrays
 				.asList("/app"));
 
+		// Let the handler do any post setup work it needs to do
 		this.annotationMethodHandler.afterPropertiesSet();
 	}
 
@@ -83,37 +91,27 @@ public class PureUnitTest {
 		byte[] payload = new ObjectMapper().writeValueAsBytes(new HelloMessage(
 				"grog"));
 
+		//Build and pass the message to the controller
 		Message<byte[]> message = MessageBuilder.withPayload(payload)
 				.setHeaders(headers).build();
 		this.annotationMethodHandler.handleMessage(message);
 
-		assertEquals(1, this.trackingGreetingService.getGreetings().size());
+		//Inbound channel will have our response message.
+		assertEquals(1, this.clientInboundChannel.getMessages().size());
 
-		Greeting greeting = this.trackingGreetingService.getGreetings().get(0);
-		assertEquals(greeting.getContent(), "Hello, grog!");
+		Message<?> greeting = this.clientInboundChannel.getMessages().get(0);
+		assertNotNull(greeting);
+
+		//Make sure to check the destination is proper
+		StompHeaderAccessor greetingResponseHeaders = StompHeaderAccessor
+				.wrap(greeting);
+		assertEquals("/topic/greetings",
+				greetingResponseHeaders.getDestination());
+
+		//Get the JSON response and validate it.
+		String json = new String((byte[]) greeting.getPayload(),
+				Charset.forName("UTF-8"));
+		new JsonPathExpectationsHelper("$.content").assertValue(json,
+				"Hello, grog!");
 	}
-
-	/**
-	 * An extension of SimpAnnotationMethodMessageHandler that exposes a
-	 * (public) method for manually registering a controller, rather than having
-	 * it auto-discovered in the Spring ApplicationContext.
-	 * 
-	 * This is to allow discovery of annotations, and have the message system
-	 * configure itself appropriately
-	 */
-	private static class TestAnnotationMethodHandler extends
-			SimpAnnotationMethodMessageHandler {
-
-		public TestAnnotationMethodHandler(SubscribableChannel inChannel,
-				MessageChannel outChannel,
-				SimpMessageSendingOperations brokerTemplate) {
-
-			super(inChannel, outChannel, brokerTemplate);
-		}
-
-		public void registerHandler(Object handler) {
-			super.detectHandlerMethods(handler);
-		}
-	}
-
 }

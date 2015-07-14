@@ -18,11 +18,6 @@ apply plugin: 'spring-boot'
 apply plugin: 'io.spring.dependency-management'
 apply plugin: 'war'
 
-jar {
-    baseName = 'websocket-demo'
-    version = '0.0.1-SNAPSHOT'
-}
-
 war {
 	baseName = 'websocket-demo'
 	version =  '0.0.1-SNAPSHOT'

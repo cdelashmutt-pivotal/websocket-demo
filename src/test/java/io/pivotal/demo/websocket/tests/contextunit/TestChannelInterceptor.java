@@ -1,4 +1,4 @@
-package io.pivotal.demo.websocket.contextunit;
+package io.pivotal.demo.websocket.tests.contextunit;
 
 import java.util.ArrayList;
 import java.util.Arrays;

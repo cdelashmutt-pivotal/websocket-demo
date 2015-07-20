@@ -1,4 +1,4 @@
-package io.pivotal.demo.websocket.pureunit;
+package io.pivotal.demo.websocket.tests.pureunit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;

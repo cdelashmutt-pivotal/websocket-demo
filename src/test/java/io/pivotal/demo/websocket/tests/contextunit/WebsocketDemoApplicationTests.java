@@ -1,4 +1,4 @@
-package io.pivotal.demo.websocket.contextunit;
+package io.pivotal.demo.websocket.tests.contextunit;
 
 import static org.junit.Assert.*;
 import io.pivotal.demo.websocket.domain.HelloMessage;

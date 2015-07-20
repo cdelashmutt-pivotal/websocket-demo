@@ -1,4 +1,4 @@
-package io.pivotal.demo.websocket.pureunit;
+package io.pivotal.demo.websocket.tests.pureunit;
 
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.SubscribableChannel;

@@ -19,6 +19,7 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.test.util.JsonPathExpectationsHelper;
+import org.springframework.web.socket.test.StompMessageBuilder;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -91,27 +92,56 @@ public class PureUnitTest {
 		byte[] payload = new ObjectMapper().writeValueAsBytes(new HelloMessage(
 				"grog"));
 
-		//Build and pass the message to the controller
+		// Build and pass the message to the controller
 		Message<byte[]> message = MessageBuilder.withPayload(payload)
 				.setHeaders(headers).build();
 		this.annotationMethodHandler.handleMessage(message);
 
-		//Inbound channel will have our response message.
+		// Inbound channel will have our response message.
 		assertEquals(1, this.clientInboundChannel.getMessages().size());
 
 		Message<?> greeting = this.clientInboundChannel.getMessages().get(0);
 		assertNotNull(greeting);
 
-		//Make sure to check the destination is proper
+		// Make sure to check the destination is proper
 		StompHeaderAccessor greetingResponseHeaders = StompHeaderAccessor
 				.wrap(greeting);
 		assertEquals("/topic/greetings",
 				greetingResponseHeaders.getDestination());
 
-		//Get the JSON response and validate it.
+		// Get the JSON response and validate it.
 		String json = new String((byte[]) greeting.getPayload(),
 				Charset.forName("UTF-8"));
 		new JsonPathExpectationsHelper("$.content").assertValue(json,
 				"Hello, grog!");
 	}
+
+	@Test
+	public void getGreeting2() throws Exception {
+
+		Message<byte[]> message = StompMessageBuilder
+				.forCommand(StompCommand.SEND)
+				.sessionId("0")
+				.destination("/app/hello")
+				.payload(new HelloMessage("grog"))
+				.build();
+
+		this.annotationMethodHandler.handleMessage(message);
+
+		assertEquals(1, this.clientInboundChannel.getMessages().size());
+
+		Message<?> greeting = this.clientInboundChannel.getMessages().get(0);
+		assertNotNull(greeting);
+
+		StompHeaderAccessor greetingResponseHeaders = StompHeaderAccessor
+				.wrap(greeting);
+		assertEquals("/topic/greetings",
+				greetingResponseHeaders.getDestination());
+
+		String json = new String((byte[]) greeting.getPayload(),
+				Charset.forName("UTF-8"));
+		new JsonPathExpectationsHelper("$.content").assertValue(json,
+				"Hello, grog!");
+	}
+
 }

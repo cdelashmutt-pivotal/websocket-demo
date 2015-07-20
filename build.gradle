@@ -44,7 +44,6 @@ dependencies {
 	testCompile("org.projectreactor:reactor-net")
 	//Used for JsonPath Expectations
 	testCompile("com.jayway.jsonpath:json-path")
-
 }
 
 
